@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+import logging
 import xml.etree.ElementTree as ET
 
 XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>'
@@ -20,7 +22,7 @@ def add_bogus_parameter(url):
     The original vTuner API hacks around that by adding a specific parameter or a bogus parameter like '?empty=' to
     the target URL.
     """
-    return url + '?vtuner=true'
+    return url +'?empty='
 
 
 class Page:
@@ -45,7 +47,11 @@ class Page:
         return xml
 
     def to_string(self):
-        return XML_HEADER + ET.tostring(self.to_xml()).decode('utf-8')
+#        s = XML_HEADER + ET.tostring(self.to_xml(),encoding='us-ascii').decode('us-ascii') #.decode('utf-8')
+        s = XML_HEADER + ET.tostring(self.to_xml(),encoding='utf-8').decode('utf-8') #.decode('utf-8')
+        t = s.replace("><",">\r\n<") #.replace("&amp;","&")
+        logging.debug(t)
+        return t
 
 
 class Previous:
@@ -97,10 +103,10 @@ class Directory:
     def to_xml(self):
         item = ET.Element('Item')
         ET.SubElement(item, 'ItemType').text = 'Dir'
-        ET.SubElement(item, 'Title').text = self.title
+        ET.SubElement(item, 'Title').text = " "+self.title
         ET.SubElement(item, 'UrlDir').text = add_bogus_parameter(self.destination)
         ET.SubElement(item, 'UrlDirBackUp').text = add_bogus_parameter(self.destination)
-        ET.SubElement(item, 'DirCount').text = str(self.item_count)
+#        ET.SubElement(item, 'DirCount').text = str(self.item_count)
         return item
 
     def set_item_count(self, item_count):
@@ -108,8 +114,8 @@ class Directory:
 
 
 class Station:
-    def __init__(self, uid, name, description, url, icon, genre, location, mime, bitrate, bookmark):
-        self.uid = uid
+    def __init__(self, id, name, description, url, icon, genre, location, mime, bitrate, bookmark, prefix):
+        self.id = id
         self.name = name
         self.description = description
         self.url = strip_https(url)
@@ -120,25 +126,51 @@ class Station:
         self.mime = mime
         self.bitrate = bitrate
         self.bookmark = bookmark
+        self.prefix = prefix
 
     def set_trackurl(self, url):
         self.trackurl = url
 
+    def set_bookmark(self, url):
+        self.bookmark = url
+
+    def set_mac(self, mac):
+        self.mac = mac
+
     def to_xml(self):
         item = ET.Element('Item')
         ET.SubElement(item, 'ItemType').text = 'Station'
-        ET.SubElement(item, 'StationId').text = self.uid
+        ET.SubElement(item, 'StationId').text = self.id
         ET.SubElement(item, 'StationName').text = self.name
+        params = '?ex45v='+self.mac + '&id=' +self.id + '&p='+self.prefix 
         if self.trackurl:
-            ET.SubElement(item, 'StationUrl').text = self.trackurl
+            ET.SubElement(item, 'StationUrl').text = self.trackurl + params
+        elif self.url:
+            ET.SubElement(item, 'StationUrl').text = self.url + params
+        if self.description:
+            ET.SubElement(item, 'StationDesc').text = self.description
         else:
-            ET.SubElement(item, 'StationUrl').text = self.url
-        ET.SubElement(item, 'StationDesc').text = self.description
-        ET.SubElement(item, 'Logo').text = self.icon
-        ET.SubElement(item, 'StationFormat').text = self.genre
-        ET.SubElement(item, 'StationLocation').text = self.location
-        ET.SubElement(item, 'StationBandWidth').text = str(self.bitrate)
-        ET.SubElement(item, 'StationMime').text = self.mime
+            ET.SubElement(item, 'StationDesc').text = self.name
+#        if self.icon:
+#            ET.SubElement(item, 'Logo').text = self.icon
+#        ET.SubElement(item, 'Logo').text = 'http://logo.vtuner.net/007452/logo/logo-28875.jpg'
+        if self.genre:
+            ET.SubElement(item, 'StationFormat').text = self.genre
+        else:
+            ET.SubElement(item, 'StationFormat').text = 'Pop'
+        if self.location:
+            ET.SubElement(item, 'StationLocation').text = self.location
+        else:
+            ET.SubElement(item, 'StationLocation').text = 'Netherlands'
+        if self.bitrate:
+            ET.SubElement(item, 'StationBandWidth').text = str(self.bitrate)
+        else:
+            ET.SubElement(item, 'StationBandWidth').text = '96'
+        if self.mime:
+            ET.SubElement(item, 'StationMime').text = self.mime
+        else:
+            ET.SubElement(item, 'StationMime').text = 'MP3'
         ET.SubElement(item, 'Relia').text = '3'
-        ET.SubElement(item, 'Bookmark').text = self.bookmark
+        if self.bookmark:
+            ET.SubElement(item, 'Bookmark').text = self.bookmark
         return item
